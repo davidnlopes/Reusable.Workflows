@@ -34,7 +34,7 @@ jobs:
       - name: Checkout reusable-workflows repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: dnlopes/github-workflows
+          repository: dnlopes/Reusable.Workflows
           path: actions
 
       - name: Install tools

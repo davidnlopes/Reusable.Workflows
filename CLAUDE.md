@@ -11,7 +11,7 @@ Reusable GitHub Actions workflows providing standardized CI/CD pipelines for Gol
 ```bash
 # No local setup required - workflows are consumed remotely
 # Test changes by referencing your branch in a consumer repository:
-# uses: dnlopes/github-workflows/.github/workflows/golang.yaml@your-branch
+# uses: dnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch
 ```
 
 ## Principles
