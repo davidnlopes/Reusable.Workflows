@@ -19,8 +19,8 @@ last_updated: "2025-12-06T02:00:43Z"
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/dnlopes/github-workflows.git
-   cd github-workflows
+   git clone https://github.com/dnlopes/Reusable.Workflows.git
+   cd Reusable.Workflows
    ```
 
 2. No local build or install steps required - workflows are consumed remotely by other repositories.
@@ -33,7 +33,7 @@ Since workflows run in GitHub Actions, test changes by referencing your branch f
 # In your test repository's workflow
 jobs:
   test:
-    uses: dnlopes/github-workflows/.github/workflows/golang.yaml@your-branch-name
+    uses: dnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch-name
 ```
 
 ## Contributing

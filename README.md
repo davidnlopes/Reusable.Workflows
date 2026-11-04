@@ -30,7 +30,7 @@ on: [pull_request]
 
 jobs:
   golang:
-    uses: dnlopes/github-workflows/.github/workflows/golang.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
@@ -55,7 +55,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: dnlopes/github-workflows/.github/workflows/golang.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
     with:
       goVersion: "1.22"
       golangProjectDir: "."
@@ -70,7 +70,7 @@ jobs:
 ```yaml
 jobs:
   ci:
-    uses: dnlopes/github-workflows/.github/workflows/python.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/python.yaml@v1
     with:
       pythonVersion: "3.12"
       setupCommand: "pip install -e .[dev]"
@@ -84,7 +84,7 @@ jobs:
 ```yaml
 jobs:
   plan:
-    uses: dnlopes/github-workflows/.github/workflows/terraform.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/terraform.yaml@v1
     with:
       action: plan
       workspace: production
@@ -98,7 +98,7 @@ jobs:
 ```yaml
 jobs:
   security:
-    uses: dnlopes/github-workflows/.github/workflows/trivy-scan.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/trivy-scan.yaml@v1
     with:
       scanDirectory: "."
 ```
@@ -108,7 +108,7 @@ jobs:
 ```yaml
 jobs:
   validate:
-    uses: dnlopes/github-workflows/.github/workflows/semantic-pr.yaml@v1
+    uses: dnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
 ```
 
 ### Dependabot Merge
