@@ -1,6 +1,11 @@
 on:
   workflow_call:
     inputs:
+      runsOn:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: runner label for the job, for example the name of a self-hosted runner scale set
       terraformProjectDir:
         required: false
         type: string
@@ -58,7 +63,7 @@ on:
 jobs:
   terraform:
     name: ${{ inputs.terraformAction }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runsOn }}
     permissions:
       pull-requests: write
       contents: read

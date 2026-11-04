@@ -1,6 +1,11 @@
 on:
   workflow_call:
     inputs:
+      runsOn:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: runner label for the job, for example the name of a self-hosted runner scale set
       pythonVersion:
         required: false
         type: string
@@ -29,7 +34,7 @@ env:
 jobs:
   python:
     name: Unit tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runsOn }}
     permissions:
       contents: read # Required: allow read access to the content for analysis.
       pull-requests: read # Optional: allow read access to pull request. Use with `only-new-issues` option.
