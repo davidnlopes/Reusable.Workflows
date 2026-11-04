@@ -19,7 +19,7 @@ last_updated: "2025-12-06T02:00:43Z"
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/dnlopes/Reusable.Workflows.git
+   git clone https://github.com/davidnlopes/Reusable.Workflows.git
    cd Reusable.Workflows
    ```
 
@@ -33,7 +33,7 @@ Since workflows run in GitHub Actions, test changes by referencing your branch f
 # In your test repository's workflow
 jobs:
   test:
-    uses: dnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch-name
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch-name
 ```
 
 ## Contributing
