@@ -1,6 +1,11 @@
 on:
   workflow_call:
     inputs:
+      runsOn:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: runner label for the job, for example the name of a self-hosted runner scale set
       projectDir:
         required: false
         type: string
@@ -56,7 +61,7 @@ env:
 jobs:
   react:
     name: Build and test
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runsOn }}
     permissions:
       contents: read # checkout repository
       pull-requests: read # read PR metadata

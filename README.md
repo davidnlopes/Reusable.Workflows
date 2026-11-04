@@ -141,6 +141,22 @@ jobs:
 
 `DEPENDABOT_MERGE_TOKEN` is a fine-grained personal access token of a code owner. It needs read and write access to **Contents**, **Pull requests**, and **Workflows**. Store it as an Actions secret and as a Dependabot secret: runs that Dependabot triggers read only Dependabot secrets.
 
+## Self-hosted runners
+
+To run a job on a self-hosted runner, set the `runsOn` input. It defaults to `ubuntu-latest`.
+
+```yaml
+jobs:
+  test:
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
+    with:
+      runsOn: my-runner-scale-set
+      buildCommand: go build ./...
+      testCommand: go test ./...
+```
+
+These workflows support `runsOn`: `golang.yaml`, `python.yaml`, `react.yaml`, `terraform.yaml`, `trivy-scan.yaml`, and `pre-commit-hooks.yaml`.
+
 ## Version Pinning
 
 Reference workflows using semantic versioning:
