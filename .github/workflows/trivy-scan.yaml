@@ -26,11 +26,6 @@ on:
         type: string
         default: .trivyignore
         description: path to .trivyignore file for excluding vulnerabilities (ignored if file does not exist)
-      configFile:
-        required: false
-        type: string
-        default: trivy.yaml
-        description: path to trivy.yaml configuration file (ignored if file does not exist)
       ignoreErrors:
         required: false
         type: boolean
@@ -67,6 +62,38 @@ jobs:
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin v${{ inputs.trivyVersion }}
           trivy --version
 
+      - name: Write Trivy config
+        run: |
+          cat > "$RUNNER_TEMP/trivy.yaml" <<'EOF'
+          format: table
+          exit-code: 1
+          timeout: 10m
+          severity: [CRITICAL, HIGH, MEDIUM]
+          scanners: [vuln, secret, misconfig]
+
+          scan:
+            skip-dirs:
+              - node_modules
+              - vendor
+              - .git
+              - .terraform
+              - __pycache__
+              - .venv
+              - venv
+              - dist
+              - build
+              - .cache
+
+          vulnerability:
+            type: [library]
+            ignore-unfixed: true
+
+          misconfiguration:
+            include-non-failures: false
+            terraform:
+              exclude-downloaded-modules: true
+          EOF
+
       - name: Build Trivy command arguments
         id: trivy-args
         run: |
@@ -80,13 +107,7 @@ jobs:
             echo "Ignore file not found: ${{ inputs.trivyIgnoreFile }} (skipping)"
           fi
 
-          # Only add config file if the file exists
-          if [ -n "${{ inputs.configFile }}" ] && [ -f "${{ inputs.configFile }}" ]; then
-            echo "Using config file: ${{ inputs.configFile }}"
-            ARGS="$ARGS --config ${{ inputs.configFile }}"
-          elif [ -n "${{ inputs.configFile }}" ]; then
-            echo "Config file not found: ${{ inputs.configFile }} (skipping)"
-          fi
+          ARGS="$ARGS --config $RUNNER_TEMP/trivy.yaml"
 
           echo "args=$ARGS" >> "$GITHUB_OUTPUT"
 
