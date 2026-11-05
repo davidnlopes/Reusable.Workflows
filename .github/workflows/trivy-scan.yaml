@@ -176,7 +176,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Set status success
-        if: (success() || inputs.ignoreErrors == true) && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+        if: ((success() && steps.trivy-table.outcome == 'success') || inputs.ignoreErrors == true) && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -186,7 +186,7 @@ jobs:
             -f "context=${{ env.CHECK_NAME }}"
 
       - name: Set status failure
-        if: failure() && inputs.ignoreErrors == false && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+        if: (failure() || steps.trivy-table.outcome == 'failure') && inputs.ignoreErrors == false && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
