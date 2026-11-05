@@ -39,23 +39,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # needed for PR comments
-      statuses: write # needed for setting the status of the PR
-    env:
-      CHECK_NAME: Trivy CI
 
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Set pending status
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api --method POST -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
-            -f "state=pending" -f "description=security scan running" \
-            -f "context=${{ env.CHECK_NAME }}"
 
       - name: Install Trivy
         run: |
@@ -174,26 +161,6 @@ jobs:
           path: trivy-results.txt
           retention-days: 30
           if-no-files-found: ignore
-
-      - name: Set status success
-        if: ((success() && steps.trivy-table.outcome == 'success') || inputs.ignoreErrors == true) && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api --method POST -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
-            -f "state=success" -f "description=security scan passed" \
-            -f "context=${{ env.CHECK_NAME }}"
-
-      - name: Set status failure
-        if: (failure() || steps.trivy-table.outcome == 'failure') && inputs.ignoreErrors == false && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api --method POST -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
-            /repos/${{ github.repository }}/statuses/${{ github.event.pull_request.head.sha }} \
-            -f "state=failure" -f "description=security vulnerabilities found" \
-            -f "context=${{ env.CHECK_NAME }}"
 
       - name: Fail if vulnerabilities found
         if: steps.trivy-table.outcome == 'failure' && inputs.ignoreErrors == false

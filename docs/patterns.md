@@ -38,7 +38,7 @@ last_updated: "2025-12-06T02:00:43Z"
 
 **Job names:** Descriptive titles (e.g., "Build and test", "Unit tests", "Docker Build")
 
-**Check contexts:** Format `<Technology> CI` (e.g., "Golang CI", "Python CI", "Trivy CI")
+**Check contexts:** Format `<Technology> CI` (e.g., "Golang CI", "Python CI", "Terraform CI")
 
 ## Status Check Pattern
 
