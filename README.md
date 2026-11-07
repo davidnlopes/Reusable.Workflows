@@ -1,122 +1,128 @@
-<!--
----
-scope:
-  - ".github/workflows/*.yaml"
-last_updated: "2025-12-06T02:00:43Z"
----
--->
-
 # Reusable GitHub Workflows
 
-Standardized CI/CD pipelines for your repositories. Drop-in workflows for Golang, Python, Terraform/OpenTofu, Docker, and security scanning.
+Shared GitHub Actions workflows that other repositories call to build, test, scan, and deploy their code. A repository adds a few lines of YAML instead of maintaining its own pipeline, and every caller gets the same checks, pinned actions, and least-privilege permissions.
 
-## Features
+Each workflow uses the `workflow_call` trigger. Workflows that run on pull requests also report a commit status, such as `Golang CI`, that you can mark as required in branch protection.
 
-- **Multi-language CI** - Pre-built pipelines for Go, Python, Terraform/OpenTofu
-- **Docker integration** - Build and push to AWS ECR with OIDC authentication
-- **Security scanning** - Trivy vulnerability scanning with PR comments
-- **Quality gates** - Pre-commit hooks, semantic PR validation, code coverage
-- **Automated releases** - Semantic versioning with conventional commits
-- **Monorepo support** - Run workflows in subdirectories via inputs
+## Workflows
 
-## Quick Start
+| Workflow | What it does | Secrets |
+| --- | --- | --- |
+| `golang.yaml` | Runs your build and test commands, then uploads coverage to Codecov | `CODECOV_TOKEN` (optional) |
+| `python.yaml` | Runs your setup and test commands, then uploads coverage to Codecov | `CODECOV_TOKEN` |
+| `react.yaml` | Installs dependencies with npm, pnpm, or Yarn, then lints, tests, builds, and uploads coverage | `CODECOV_TOKEN` |
+| `terraform.yaml` | Formats, validates, and runs `plan`, `apply`, or `destroy` with Terraform or OpenTofu, and comments the results on the PR | None, uses AWS OIDC |
+| `docker-build.yaml` | Builds a Docker image without pushing it | None |
+| `docker-build-push.yaml` | Builds a Docker image and pushes it to Amazon ECR | None, uses AWS OIDC |
+| `trivy-scan.yaml` | Scans the repository with Trivy and comments the findings on the PR | None |
+| `pre-commit-hooks.yaml` | Runs the repository's pre-commit hooks | None |
+| `semantic-pr.yaml` | Checks that the PR title follows conventional commits and that the PR has exactly one `major`, `minor`, or `patch` label | None |
+| `dependabot-merge.yaml` | Merges Dependabot PRs after a code owner approves them | `DEPENDABOT_MERGE_TOKEN` |
 
-Add a workflow file to your repository:
+The input names, defaults, and descriptions live in the `on.workflow_call` block at the top of each file in [`.github/workflows/`](.github/workflows/).
+
+## Usage
+
+Call a workflow from a job in your repository:
 
 ```yaml
-# .github/workflows/ci.yml
+# .github/workflows/ci.yaml
 name: CI
 on: [pull_request]
 
 jobs:
   golang:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-```
-
-## Available Workflows
-
-| Workflow | Purpose | Required Secrets |
-|----------|---------|------------------|
-| `golang.yaml` | Build, test, lint, coverage | `CODECOV_TOKEN` (optional) |
-| `python.yaml` | Unit tests, coverage | `CODECOV_TOKEN` (optional) |
-| `terraform.yaml` | Validate, plan, apply, destroy | AWS OIDC credentials |
-| `docker-build-push.yaml` | Build and push to ECR | AWS OIDC credentials |
-| `trivy-scan.yaml` | Security vulnerability scanning | None |
-| `semantic-pr.yaml` | Enforce semantic PR titles | None |
-| `pre-commit-hooks.yaml` | Run pre-commit hooks | None |
-| `dependabot-merge.yaml` | Merge Dependabot PRs after a code owner approves | `DEPENDABOT_MERGE_TOKEN` |
-
-## Usage Examples
-
-### Golang Project
-
-```yaml
-jobs:
-  ci:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
     with:
-      goVersion: "1.22"
-      golangProjectDir: "."
-      buildCommand: "make build"
-      testCommand: "make test"
+      buildCommand: go build ./...
+      testCommand: go test -coverprofile=coverage.out ./...
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
 
-### Python Project
+### Pick a version
+
+Every release is tagged three ways:
+
+- `@v1` follows the latest release of that major version. Use this by default.
+- `@v1.2` follows patch releases only.
+- `@v1.2.3` never changes.
+
+### Inputs most workflows share
+
+- `ignoreErrors` reports success even when the checks fail. Use it to roll out a new check without blocking PRs.
+- A directory input, such as `golangProjectDir`, `terraformProjectDir`, or `projectDir`, runs the workflow in a subdirectory of a monorepo.
+- `runsOn` picks the runner, and defaults to `ubuntu-latest`. Set it to run on a self-hosted runner.
+
+### Examples
+
+Python:
 
 ```yaml
 jobs:
-  ci:
+  python:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/python.yaml@v1
     with:
-      pythonVersion: "3.12"
-      setupCommand: "pip install -e .[dev]"
-      testCommand: "pytest --cov"
+      setupCommand: pip install -e .[dev]
+      testsCommand: pytest --cov
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 ```
 
-### Terraform Plan
+Terraform plan:
 
 ```yaml
 jobs:
-  plan:
+  terraform:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/terraform.yaml@v1
     with:
-      action: plan
-      workspace: production
-      tfVarsFile: environments/prod.tfvars
-      awsRegion: us-east-1
-      awsRoleArn: arn:aws:iam::123456789:role/terraform
+      terraformProjectDir: infra
+      terraformAction: plan
+      terraformWorkspace: production
+      terraformVarsFile: environments/prod.tfvars
+      awsRoleArn: arn:aws:iam::123456789012:role/terraform
 ```
 
-### Security Scanning
+Set `binary: tofu` to use OpenTofu instead of Terraform. The workflow assumes the AWS role in `eu-west-1`.
+
+Docker build and push to ECR:
 
 ```yaml
 jobs:
-  security:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/trivy-scan.yaml@v1
+  docker:
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/docker-build-push.yaml@v1
     with:
-      scanDirectory: "."
+      dockerFilePath: Dockerfile
+      repository: my-service
+      tag: ${{ github.sha }}
+      awsRoleArn: arn:aws:iam::123456789012:role/ecr-push
+      pushToECR: true
 ```
 
-### Semantic PR Validation
+The workflow creates the ECR repository when it does not exist. Set `createRepository: false` to turn that off.
+
+Trivy, pre-commit, and semantic PR checks need no inputs:
 
 ```yaml
 jobs:
-  validate:
+  trivy:
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/trivy-scan.yaml@v1
+  pre-commit:
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/pre-commit-hooks.yaml@v1
+  semantic-pr:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
 ```
 
-### Dependabot Merge
+Trivy reads ignore rules from `.trivyignore` when the file exists.
 
-A code owner approves a Dependabot PR, or comments `LGTM` on it, and the workflow enables squash auto-merge. The workflow also does two follow-up tasks:
+### Merge Dependabot PRs
 
-- When a PR falls behind the default branch, it asks Dependabot to rebase the PR.
+When a code owner approves a Dependabot PR, or comments `LGTM` on it, the workflow enables squash auto-merge. It also keeps the PR mergeable:
+
+- When the PR falls behind the default branch, it asks Dependabot to rebase the PR.
 - When the rebase dismisses the approval, it approves again, but only if the changes match the approved commit.
+
+The workflow reacts to several events, so the calling workflow must listen to all of them:
 
 ```yaml
 on:
@@ -139,47 +145,27 @@ jobs:
       DEPENDABOT_MERGE_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}
 ```
 
-`DEPENDABOT_MERGE_TOKEN` is a fine-grained personal access token of a code owner. It needs read and write access to **Contents**, **Pull requests**, and **Workflows**. Store it as an Actions secret and as a Dependabot secret: runs that Dependabot triggers read only Dependabot secrets.
+`DEPENDABOT_MERGE_TOKEN` is a fine-grained personal access token of a code owner, with read and write access to **Contents**, **Pull requests**, and **Workflows**. Store it as both an Actions secret and a Dependabot secret, because runs that Dependabot triggers read only Dependabot secrets. Also allow auto-merge in the repository settings.
 
-## Self-hosted runners
+### Set up AWS access
 
-To run a job on a self-hosted runner, set the `runsOn` input. It defaults to `ubuntu-latest`.
-
-```yaml
-jobs:
-  test:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
-    with:
-      runsOn: my-runner-scale-set
-      buildCommand: go build ./...
-      testCommand: go test ./...
-```
-
-These workflows support `runsOn`: `golang.yaml`, `python.yaml`, `react.yaml`, `terraform.yaml`, `trivy-scan.yaml`, and `pre-commit-hooks.yaml`.
-
-## Version Pinning
-
-Reference workflows using semantic versioning:
-
-- `@v1` - Major version (recommended, receives minor/patch updates)
-- `@v1.2` - Minor version (receives patch updates only)
-- `@v1.2.3` - Exact version (pinned, no automatic updates)
-
-## Prerequisites
-
-- **All workflows**: GitHub Actions enabled in your repository
-- **Coverage workflows**: `CODECOV_TOKEN` secret configured
-- **Dependabot merge**: `DEPENDABOT_MERGE_TOKEN` stored as an Actions secret and a Dependabot secret, and auto-merge allowed in the repository settings
-- **AWS workflows**: OIDC trust relationship between GitHub and AWS
-- **Terraform**: IAM role ARN and tfvars file in repository
+`terraform.yaml` and `docker-build-push.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) - System design and components
-- [Domain](docs/domain.md) - Terminology and business rules
-- [Patterns](docs/patterns.md) - Code conventions and examples
-- [Development](docs/development.md) - Contributing guidelines
+| Topic | Document | Read it when |
+| --- | --- | --- |
+| Architecture | [`docs/architecture.md`](docs/architecture.md) | You want to know how the workflows, the shared action, and external services fit together |
+| Domain | [`docs/domain.md`](docs/domain.md) | You meet an unfamiliar term or need the rules every workflow follows |
+| Patterns | [`docs/patterns.md`](docs/patterns.md) | You add or change a workflow |
+| Development | [`docs/development.md`](docs/development.md) | You test a change, open a PR, or want to know how releases work |
 
-## License
+## Development
 
-MIT
+There is nothing to build or install locally. To test a change, push a branch and call the workflow from a test repository by branch name:
+
+```yaml
+uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch
+```
+
+Open the PR with a conventional commit title and exactly one `major`, `minor`, or `patch` label. Merging to `main` publishes a release. See [`docs/development.md`](docs/development.md) for the full process.
