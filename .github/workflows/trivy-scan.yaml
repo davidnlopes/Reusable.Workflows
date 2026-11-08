@@ -43,6 +43,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A pull_request checkout is the test merge commit; depth 2 also fetches its first parent, the base branch tip.
+          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
 
       - name: Install Trivy
         run: |
@@ -98,50 +101,184 @@ jobs:
 
           echo "args=$ARGS" >> "$GITHUB_OUTPUT"
 
-      - name: Run Trivy scan (table output)
-        id: trivy-table
+      - name: Check out the PR base
+        id: base
+        if: github.event_name == 'pull_request'
+        run: |
+          if git rev-parse --verify --quiet HEAD^2 >/dev/null; then
+            git worktree add --detach "$RUNNER_TEMP/trivy-base" HEAD^1
+            echo "dir=$RUNNER_TEMP/trivy-base" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::HEAD is not a PR merge commit, so every finding fails the scan"
+          fi
+
+      - name: Run Trivy scan
+        id: trivy-head
         continue-on-error: true
         run: |
           trivy fs \
-            --format table \
-            --output trivy-results.txt \
+            --format json \
+            --exit-code 0 \
+            --output "$RUNNER_TEMP/trivy-head.json" \
             ${{ steps.trivy-args.outputs.args }} \
-            ${{ inputs.projectDir }}
+            "${{ inputs.projectDir }}"
+
+      - name: Run Trivy scan on the PR base
+        id: trivy-base
+        if: steps.base.outputs.dir != ''
+        continue-on-error: true
+        # Runs from the head workspace so that the head's ignore file applies to both scans.
+        run: |
+          trivy fs \
+            --format json \
+            --exit-code 0 \
+            --output "$RUNNER_TEMP/trivy-base.json" \
+            ${{ steps.trivy-args.outputs.args }} \
+            "${{ steps.base.outputs.dir }}/${{ inputs.projectDir }}"
+
+      - name: Compare findings
+        id: findings
+        if: always() && steps.trivy-head.outcome == 'success'
+        env:
+          BASE_SCANNED: ${{ steps.trivy-base.outcome == 'success' }}
+          BASE_SKIPPED: ${{ steps.trivy-base.outcome == 'skipped' || steps.trivy-base.outcome == '' }}
+        run: |
+          cat > "$RUNNER_TEMP/trivy-diff.jq" <<'EOF'
+          # A head finding is new when the base has fewer findings with the same key. Keys leave out package versions
+          # and line numbers, so bumping a still-vulnerable package or moving code does not count as new.
+          $head[0] as $head | $base[0] as $base |
+          def kinds: ["Vulnerabilities", "Secrets", "Misconfigurations"];
+          def fkey($target; $kind):
+            if $kind == "Vulnerabilities" then [$target, $kind, .VulnerabilityID, .PkgName]
+            elif $kind == "Secrets" then [$target, $kind, .RuleID, .Match]
+            else [$target, $kind, .ID, (.CauseMetadata.Resource // ""), .Message] end;
+          def failing($kind): if $kind == "Misconfigurations" then map(select(.Status == "FAIL")) else . end;
+          def tagged:
+            [ .Results[]? as $r | kinds[] as $k | ($r[$k] // [] | failing($k))[]
+              | {key: fkey($r.Target; $k), target: $r.Target, class: $r.Class, type: $r.Type, kind: $k, finding: .} ]
+            | group_by(.key)
+            | map(to_entries | map(.value + {id: (.value.key + [.key] | tojson)}))
+            | add // [];
+          def report($items):
+            $head + {Results: ($items | group_by([.target, .class]) | map(
+              {Target: .[0].target, Class: .[0].class, Type: .[0].type}
+              + (group_by(.kind) | map({(.[0].kind): map(.finding)}) | add)
+              + (map(select(.kind == "Misconfigurations")) | length | if . > 0 then {MisconfSummary: {Successes: 0, Failures: .}} else {} end)
+            ))};
+          ($head | tagged) as $h
+          | (if $base == null then {} else [$base | tagged[] | {(.id): true}] | add // {} end) as $known
+          | {new: report([$h[] | select($known[.id] | not)]), existing: report([$h[] | select($known[.id])])}
+          EOF
+
+          if [ "$BASE_SCANNED" = "true" ]; then
+            mode=diff
+            base="$RUNNER_TEMP/trivy-base.json"
+          else
+            if [ "$BASE_SKIPPED" != "true" ]; then
+              echo "::warning::The PR base scan failed, so every finding fails the scan"
+            fi
+            mode=full
+            base="$RUNNER_TEMP/trivy-no-base.json"
+            echo null > "$base"
+          fi
+          jq -n --slurpfile head "$RUNNER_TEMP/trivy-head.json" --slurpfile base "$base" \
+            -f "$RUNNER_TEMP/trivy-diff.jq" > "$RUNNER_TEMP/trivy-split.json"
+          jq .new "$RUNNER_TEMP/trivy-split.json" > trivy-new.json
+          jq .existing "$RUNNER_TEMP/trivy-split.json" > trivy-existing.json
+
+          # An empty config stops trivy convert from loading a trivy.yaml from the scanned repository.
+          : > "$RUNNER_TEMP/trivy-convert.yaml"
+          render() {
+            trivy convert --quiet --config "$RUNNER_TEMP/trivy-convert.yaml" --table-mode detailed --format table --output "$2" "$1"
+          }
+          render "$RUNNER_TEMP/trivy-head.json" trivy-results.txt
+          render trivy-new.json trivy-new.txt
+          render trivy-existing.json trivy-existing.txt
+
+          summary() {
+            jq -r '[.Results[]? | {v: (.Vulnerabilities // [] | length), s: (.Secrets // [] | length), m: (.Misconfigurations // [] | length)}]
+              | {v: (map(.v) | add // 0), s: (map(.s) | add // 0), m: (map(.m) | add // 0)}
+              | "\(.v + .s + .m) \(.v) vulnerabilities, \(.s) secrets, \(.m) misconfigurations"' "$1"
+          }
+          read -r new new_detail < <(summary trivy-new.json)
+          read -r existing existing_detail < <(summary trivy-existing.json)
+          {
+            echo "mode=$mode"
+            echo "new=$new"
+            echo "new-detail=$new_detail"
+            echo "existing=$existing"
+            echo "existing-detail=$existing_detail"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$mode" = diff ]; then
+            echo "New findings: $new ($new_detail)"
+            cat trivy-new.txt
+            echo "Findings already on the base branch: $existing ($existing_detail)"
+          else
+            echo "Findings: $new ($new_detail)"
+            cat trivy-new.txt
+          fi
 
       - name: Generate PR comment body
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComment
-        id: comment-body
+        env:
+          SCAN_OUTCOME: ${{ steps.findings.outcome }}
+          MODE: ${{ steps.findings.outputs.mode }}
+          NEW: ${{ steps.findings.outputs.new }}
+          NEW_DETAIL: ${{ steps.findings.outputs.new-detail }}
+          EXISTING: ${{ steps.findings.outputs.existing }}
+          EXISTING_DETAIL: ${{ steps.findings.outputs.existing-detail }}
+          TRIVY_VERSION: ${{ inputs.trivyVersion }}
         run: |
+          # GitHub rejects comments over 65536 characters.
+          excerpt() {
+            echo '```'
+            awk -v max="$2" '{ n += length($0) + 1; if (n > max) { print "... truncated, see the trivy-scan-results artifact"; exit } print }' "$1"
+            echo '```'
+          }
           {
-            echo 'body<<EOF'
             echo "## Trivy Security Scan Results"
             echo ""
-            if [ "${{ steps.trivy-table.outcome }}" == "success" ]; then
-              echo "> [!NOTE]"
-              echo "> No vulnerabilities found"
-            else
+            if [ "$SCAN_OUTCOME" != "success" ]; then
+              echo "> [!CAUTION]"
+              echo "> The scan did not complete. See the workflow logs."
+            elif [ "$MODE" = diff ]; then
+              if [ "$NEW" -gt 0 ]; then
+                echo "> [!WARNING]"
+                echo "> This PR introduces $NEW new findings ($NEW_DETAIL)."
+                echo ""
+                excerpt trivy-new.txt 40000
+              else
+                echo "> [!NOTE]"
+                echo "> This PR introduces no new findings."
+              fi
+              if [ "$EXISTING" -gt 0 ]; then
+                echo ""
+                echo "<details>"
+                echo "<summary>$EXISTING findings already on the base branch ($EXISTING_DETAIL). They do not fail this check.</summary>"
+                echo ""
+                excerpt trivy-existing.txt 20000
+                echo ""
+                echo "</details>"
+              fi
+            elif [ "$NEW" -gt 0 ]; then
               echo "> [!WARNING]"
-              echo "> Vulnerabilities detected"
+              echo "> $NEW findings ($NEW_DETAIL)."
               echo ""
               echo "<details>"
               echo "<summary>Click to expand scan results</summary>"
               echo ""
-              echo '```'
-              # Limit output to prevent massive comments (last 500 lines)
-              if [ -f trivy-results.txt ]; then
-                tail -n 500 trivy-results.txt
-              else
-                echo "No results file generated"
-              fi
-              echo '```'
+              excerpt trivy-new.txt 60000
               echo ""
               echo "</details>"
+            else
+              echo "> [!NOTE]"
+              echo "> No vulnerabilities found"
             fi
             echo ""
             echo "---"
-            echo "*Scan performed by [Trivy](https://github.com/aquasecurity/trivy) v${{ inputs.trivyVersion }}*"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
+            echo "*Scan performed by [Trivy](https://github.com/aquasecurity/trivy) v$TRIVY_VERSION*"
+          } > "$RUNNER_TEMP/trivy-comment.md"
 
       - name: Comment PR with scan results
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComment
@@ -151,17 +288,22 @@ jobs:
           mode: recreate
           comment-tag: trivy-scan-results
           create-if-not-exists: true
-          message: ${{ steps.comment-body.outputs.body }}
+          file-path: ${{ runner.temp }}/trivy-comment.md
 
       - name: Upload scan results as artifact
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: trivy-scan-results
-          path: trivy-results.txt
+          path: |
+            trivy-results.txt
+            trivy-new.txt
+            trivy-existing.txt
+            trivy-new.json
+            trivy-existing.json
           retention-days: 30
           if-no-files-found: ignore
 
-      - name: Fail if vulnerabilities found
-        if: steps.trivy-table.outcome == 'failure' && inputs.ignoreErrors == false
+      - name: Fail if the scan failed or found new findings
+        if: always() && inputs.ignoreErrors == false && (steps.findings.outcome != 'success' || steps.findings.outputs.new != '0')
         run: exit 1
