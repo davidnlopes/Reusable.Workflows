@@ -171,13 +171,13 @@ jobs:
           EOF
 
           if [ "$BASE_SCANNED" = "true" ]; then
-            mode=diff
+            mode="diff"
             base="$RUNNER_TEMP/trivy-base.json"
           else
             if [ "$BASE_SKIPPED" != "true" ]; then
               echo "::warning::The PR base scan failed, so every finding fails the scan"
             fi
-            mode=full
+            mode="full"
             base="$RUNNER_TEMP/trivy-no-base.json"
             echo null > "$base"
           fi
