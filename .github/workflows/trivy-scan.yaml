@@ -59,9 +59,9 @@ jobs:
           exit-code: 1
           timeout: 10m
           severity: [CRITICAL, HIGH, MEDIUM]
-          scanners: [vuln, secret, misconfig]
 
           scan:
+            scanners: [vuln, secret, misconfig]
             skip-dirs:
               - node_modules
               - vendor
