@@ -151,6 +151,8 @@ jobs:
 
 `terraform.yaml` and `docker-build-push.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
 
+To give an apply job a different role from pull request plans, pass `environment` to `terraform.yaml`. The job then runs in that GitHub Environment, and its OIDC subject ends in `environment:<name>` instead of `pull_request` or the ref. The role's trust policy can then require that subject, and the Environment's deployment rules decide which refs reach it.
+
 ## Documentation
 
 | Topic | Document | Read it when |

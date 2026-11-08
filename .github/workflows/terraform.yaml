@@ -21,6 +21,11 @@ on:
         description: the IAM role ARN to be assumed when running OpenTofu/Terraform operations
         type: string
         default: ""
+      environment:
+        required: false
+        description: GitHub Environment of the job, which sets the OIDC subject to environment:<name>; empty runs without one
+        type: string
+        default: ""
       terraformWorkspace:
         required: false
         default: ""
@@ -64,6 +69,7 @@ jobs:
   terraform:
     name: ${{ inputs.terraformAction }}
     runs-on: ${{ inputs.runsOn }}
+    environment: ${{ inputs.environment }}
     permissions:
       pull-requests: write
       contents: read
