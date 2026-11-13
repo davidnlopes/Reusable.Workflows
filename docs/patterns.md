@@ -19,16 +19,14 @@ last_updated: "2025-12-06T02:00:43Z"
 │   ├── trivy-scan.yaml
 │   ├── semantic-pr.yaml
 │   ├── pre-commit-hooks.yaml
-│   ├── dependabot-merge.yaml
-│   ├── dependabot.yaml  # Internal use only (calls dependabot-merge.yaml)
 │   └── release.yaml     # Internal use only (push trigger)
 ├── actions/
 │   └── install-common-tools/
 │       └── action.yaml  # Composite action for tool installation
-├── dependabot.yml
 ├── labeler-config.yaml
 ├── CODEOWNERS
 └── PULL_REQUEST_TEMPLATE.md
+renovate.json            # Renovate configuration
 .releaserc.yaml          # Semantic release configuration
 ```
 
