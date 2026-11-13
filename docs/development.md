@@ -1,7 +1,7 @@
 ---
 scope:
   - ".releaserc.yaml"
-  - ".github/dependabot.yml"
+  - "renovate.json"
   - ".github/PULL_REQUEST_TEMPLATE.md"
   - ".github/labeler-config.yaml"
   - ".github/CODEOWNERS"
@@ -61,14 +61,6 @@ Releases are automated via semantic-release on push to main:
    - `vX.Y.Z` - exact version
    - `vX.Y` - minor version
    - `vX` - major version
-
-## Dependency Updates
-
-Dependabot manages dependency updates:
-- Runs monthly
-- Groups minor and patch updates into one PR, and major updates into another
-- Keeps SHA-pinned actions and their version comments up to date
-- Merges a PR after a code owner approves it or comments `LGTM`, through `dependabot-merge.yaml`
 
 ## Common Tasks
 

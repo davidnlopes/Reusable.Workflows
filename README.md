@@ -17,7 +17,6 @@ Each workflow uses the `workflow_call` trigger. Workflows that run on pull reque
 | `trivy-scan.yaml` | Scans the repository with Trivy and comments the findings on the PR | None |
 | `pre-commit-hooks.yaml` | Runs the repository's pre-commit hooks | None |
 | `semantic-pr.yaml` | Checks that the PR title follows conventional commits and that the PR has exactly one `major`, `minor`, or `patch` label | None |
-| `dependabot-merge.yaml` | Merges Dependabot PRs after a code owner approves them | `DEPENDABOT_MERGE_TOKEN` |
 
 The input names, defaults, and descriptions live in the `on.workflow_call` block at the top of each file in [`.github/workflows/`](.github/workflows/).
 
@@ -114,38 +113,6 @@ jobs:
 ```
 
 Trivy reads ignore rules from `.trivyignore` when the file exists. On a `pull_request` event, Trivy also scans the base branch, and the check fails only on findings that the base branch does not have. A version bump of a package that is still vulnerable counts as new only when it adds an advisory. The PR comment lists the base branch's findings separately. Other events fail on every finding.
-
-### Merge Dependabot PRs
-
-When a code owner approves a Dependabot PR, or comments `LGTM` on it, the workflow enables squash auto-merge. It also keeps the PR mergeable:
-
-- When the PR falls behind the default branch, it asks Dependabot to rebase the PR.
-- When the rebase dismisses the approval, it approves again, but only if the changes match the approved commit.
-
-The workflow reacts to several events, so the calling workflow must listen to all of them:
-
-```yaml
-on:
-  issue_comment:
-    types: [created]
-  pull_request_review:
-    types: [submitted]
-  pull_request:
-    types: [synchronize]
-  push:
-    branches:
-      - main
-
-permissions: {}
-
-jobs:
-  merge:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/dependabot-merge.yaml@v1
-    secrets:
-      DEPENDABOT_MERGE_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}
-```
-
-`DEPENDABOT_MERGE_TOKEN` is a fine-grained personal access token of a code owner, with read and write access to **Contents**, **Pull requests**, and **Workflows**. Store it as both an Actions secret and a Dependabot secret, because runs that Dependabot triggers read only Dependabot secrets. Also allow auto-merge in the repository settings.
 
 ### Set up AWS access
 
