@@ -112,7 +112,7 @@ jobs:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
 ```
 
-Trivy reads ignore rules from `.trivyignore` when the file exists. On a `pull_request` event, Trivy also scans the base branch, and the check fails only on findings that the base branch does not have. A version bump of a package that is still vulnerable counts as new only when it adds an advisory. The PR comment lists the base branch's findings separately. Other events fail on every finding.
+Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and otherwise from `.trivyignore`. Only `.trivyignore.yaml` can limit a rule to some paths. On a `pull_request` event, Trivy also scans the base branch, and the check fails only on findings that the base branch does not have. A version bump of a package that is still vulnerable counts as new only when it adds an advisory. The PR comment lists the base branch's findings separately. Other events fail on every finding.
 
 ### Set up AWS access
 
