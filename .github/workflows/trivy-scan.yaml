@@ -24,8 +24,8 @@ on:
       trivyIgnoreFile:
         required: false
         type: string
-        default: .trivyignore
-        description: path to .trivyignore file for excluding vulnerabilities (ignored if file does not exist)
+        default: ""
+        description: path to the Trivy ignore file, relative to the root of the repository (ignored if file does not exist); empty uses .trivyignore.yaml when it exists, otherwise .trivyignore
       ignoreErrors:
         required: false
         type: boolean
@@ -86,15 +86,24 @@ jobs:
 
       - name: Build Trivy command arguments
         id: trivy-args
+        env:
+          IGNORE_FILE: ${{ inputs.trivyIgnoreFile }}
         run: |
           ARGS=""
 
-          # Only add ignorefile if the file exists
-          if [ -n "${{ inputs.trivyIgnoreFile }}" ] && [ -f "${{ inputs.trivyIgnoreFile }}" ]; then
-            echo "Using ignore file: ${{ inputs.trivyIgnoreFile }}"
-            ARGS="$ARGS --ignorefile ${{ inputs.trivyIgnoreFile }}"
-          elif [ -n "${{ inputs.trivyIgnoreFile }}" ]; then
-            echo "Ignore file not found: ${{ inputs.trivyIgnoreFile }} (skipping)"
+          # Trivy reads only .trivyignore by default, and only .trivyignore.yaml can scope an ignore rule to paths.
+          if [ -z "$IGNORE_FILE" ]; then
+            IGNORE_FILE=.trivyignore
+            if [ -f .trivyignore.yaml ]; then
+              IGNORE_FILE=.trivyignore.yaml
+            fi
+          fi
+
+          if [ -f "$IGNORE_FILE" ]; then
+            echo "Using ignore file: $IGNORE_FILE"
+            ARGS="$ARGS --ignorefile $IGNORE_FILE"
+          else
+            echo "Ignore file not found: $IGNORE_FILE (skipping)"
           fi
 
           ARGS="$ARGS --config $RUNNER_TEMP/trivy.yaml"
