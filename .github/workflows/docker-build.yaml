@@ -1,6 +1,11 @@
 on:
   workflow_call:
     inputs:
+      runsOn:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: runner label for the job, for example the name of a self-hosted runner scale set
       dockerFilePath:
         required: true
         type: string
@@ -12,7 +17,7 @@ on:
 jobs:
   docker:
     name: Docker Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runsOn }}
     permissions:
       contents: read
     steps:
