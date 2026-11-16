@@ -17,6 +17,7 @@ Each workflow uses the `workflow_call` trigger. Workflows that run on pull reque
 | `trivy-scan.yaml` | Scans the repository with Trivy and comments the findings on the PR | None |
 | `pre-commit-hooks.yaml` | Runs the repository's pre-commit hooks | None |
 | `semantic-pr.yaml` | Checks that the PR title follows conventional commits and that the PR has exactly one `major`, `minor`, or `patch` label | None |
+| `labeler.yaml` | Labels the PR from the changed files, using the shared label rules. Needs a runner that can run Docker container actions | None |
 
 The input names, defaults, and descriptions live in the `on.workflow_call` block at the top of each file in [`.github/workflows/`](.github/workflows/).
 
@@ -100,7 +101,7 @@ jobs:
 
 The workflow creates the ECR repository when it does not exist. Set `createRepository: false` to turn that off.
 
-Trivy, pre-commit, and semantic PR checks need no inputs:
+Trivy, pre-commit, semantic PR, and labeler checks need no inputs:
 
 ```yaml
 jobs:
@@ -110,6 +111,8 @@ jobs:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/pre-commit-hooks.yaml@v1
   semantic-pr:
     uses: davidnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
+  labeler:
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/labeler.yaml@v1
 ```
 
 Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and otherwise from `.trivyignore`. Only `.trivyignore.yaml` can limit a rule to some paths. On a `pull_request` event, Trivy also scans the base branch, and the check fails only on findings that the base branch does not have. A version bump of a package that is still vulnerable counts as new only when it adds an advisory. The PR comment lists the base branch's findings separately. Other events fail on every finding.
