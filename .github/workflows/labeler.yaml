@@ -1,0 +1,31 @@
+on:
+  workflow_call:
+    inputs:
+      runsOn:
+        required: false
+        type: string
+        default: ubuntu-latest
+        description: runner label for the job, for example the name of a self-hosted runner scale set; the runner must be able to run Docker container actions
+
+jobs:
+  labels:
+    name: Labels
+    runs-on: ${{ inputs.runsOn }}
+    permissions:
+      contents: read # checkout the shared labeler config
+      pull-requests: write # add and remove labels on the PR
+    steps:
+      - name: Checkout the shared labeler config
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: davidnlopes/Reusable.Workflows
+          ref: v1
+          path: shared
+          sparse-checkout: .github/labeler-config.yaml
+
+      - uses: srvaroa/labeler@bf262763a8a8e191f5847873aecc0f29df84f957 # v1.14.0
+        with:
+          config_path: shared/.github/labeler-config.yaml
+          use_local_config: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
