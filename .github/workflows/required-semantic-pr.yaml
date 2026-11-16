@@ -36,4 +36,4 @@ jobs:
     name: Semantic
     uses: davidnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
     with:
-      runsOn: ${{ (github.event.repository.private && github.event.pull_request.user.login != 'davidnlopes-uplift[bot]') && 'homelab-prod' || 'ubuntu-latest' }}
+      runsOn: ${{ github.event.repository.private && 'homelab-prod' || 'ubuntu-latest' }}
