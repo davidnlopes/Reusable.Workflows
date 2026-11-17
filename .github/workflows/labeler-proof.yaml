@@ -42,4 +42,5 @@ jobs:
       GH_REPO: ${{ github.repository }}
       PR: ${{ github.event.pull_request.number }}
     steps:
-      - run: echo "NODOCKER: $(gh pr view $PR --json labels -q '[.labels[].name]|sort|join(",")')"
+      - run: |
+          echo "NODOCKER: $(gh pr view $PR --json labels -q '[.labels[].name]|sort|join(",")')"
