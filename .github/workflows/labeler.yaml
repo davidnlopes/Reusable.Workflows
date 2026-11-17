@@ -5,7 +5,7 @@ on:
         required: false
         type: string
         default: ubuntu-latest
-        description: runner label for the job, for example the name of a self-hosted runner scale set; the runner must be able to run Docker container actions
+        description: runner label for the job, for example the name of a self-hosted runner scale set; the runner must be linux/amd64 and provide curl, but needs no Docker daemon
 
 jobs:
   labels:
@@ -14,6 +14,10 @@ jobs:
     permissions:
       contents: read # checkout the shared labeler config
       pull-requests: write # add and remove labels on the PR
+    env:
+      # renovate: datasource=github-release-attachments depName=srvaroa/labeler
+      LABELER_VERSION: v1.14.0
+      LABELER_SHA256: da0243ee2c0cae39ce2bd7c729f6ce237f8944e91fdc7b48e41371abaeb89472
     steps:
       - name: Checkout the shared labeler config
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -23,9 +27,17 @@ jobs:
           path: shared
           sparse-checkout: .github/labeler-config.yaml
 
-      - uses: srvaroa/labeler@bf262763a8a8e191f5847873aecc0f29df84f957 # v1.14.0
-        with:
-          config_path: shared/.github/labeler-config.yaml
-          use_local_config: true
+      - name: Run srvaroa/labeler
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_CONFIG_PATH: shared/.github/labeler-config.yaml
+          INPUT_USE_LOCAL_CONFIG: "true"
+          INPUT_FAIL_ON_ERROR: "false"
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          curl -fsSL -o "$tmp/action.tar.gz" \
+            "https://github.com/srvaroa/labeler/releases/download/${LABELER_VERSION}/action.tar.gz"
+          echo "${LABELER_SHA256}  $tmp/action.tar.gz" | sha256sum -c -
+          tar -xzf "$tmp/action.tar.gz" -C "$tmp" action
+          "$tmp/action"
