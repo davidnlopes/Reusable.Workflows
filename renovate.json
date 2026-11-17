@@ -1,4 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>davidnlopes/renovate-config"]
+  "extends": ["local>davidnlopes/renovate-config"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/labeler\\.yaml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*LABELER_VERSION: (?<currentValue>\\S+)\\n\\s*LABELER_SHA256: (?<currentDigest>[a-f0-9]+)"
+      ]
+    }
+  ]
 }
