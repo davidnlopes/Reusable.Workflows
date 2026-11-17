@@ -1,27 +1,45 @@
-on: pull_request
+name: Labeler proof
+on:
+  pull_request:
+
 jobs:
   docker:
-    permissions: {contents: read, pull-requests: write}
+    permissions:
+      contents: read
+      pull-requests: write
     uses: ./.github/workflows/labeler.yaml
+
   docker-labels:
     needs: docker
     runs-on: ubuntu-latest
-    permissions: {pull-requests: write}
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
     steps:
-      - env: {GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}"}
-        run: |
-          echo "DOCKER: $(gh pr view ${{ github.event.pull_request.number }} --json labels -q '[.labels[].name]|sort|join(",")')"
-          for l in $(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[].name'); do gh pr edit ${{ github.event.pull_request.number }} --remove-label "$l"; done
+      - run: |
+          echo "DOCKER: $(gh pr view $PR --json labels -q '[.labels[].name]|sort|join(",")')"
+          for l in $(gh pr view $PR --json labels -q '.labels[].name'); do gh pr edit $PR --remove-label "$l"; done
+
   nodocker:
     needs: docker-labels
-    permissions: {contents: read, pull-requests: write}
+    permissions:
+      contents: read
+      pull-requests: write
     uses: ./.github/workflows/labeler.yaml
     with:
       useDocker: false
+
   nodocker-labels:
     needs: nodocker
     runs-on: ubuntu-latest
-    permissions: {pull-requests: read}
+    permissions:
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
     steps:
-      - env: {GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}"}
-        run: echo "NODOCKER: $(gh pr view ${{ github.event.pull_request.number }} --json labels -q '[.labels[].name]|sort|join(",")')"
+      - run: echo "NODOCKER: $(gh pr view $PR --json labels -q '[.labels[].name]|sort|join(",")')"
