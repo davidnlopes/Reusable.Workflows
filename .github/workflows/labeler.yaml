@@ -5,12 +5,7 @@ on:
         required: false
         type: string
         default: ubuntu-latest
-        description: runner label for the job, for example the name of a self-hosted runner scale set; the runner must be able to run Docker container actions unless useDocker is false
-      useDocker:
-        required: false
-        type: boolean
-        default: true
-        description: run srvaroa/labeler as its Docker container action; set to false on runners without a Docker daemon to run the release binary directly
+        description: runner label for the job, for example the name of a self-hosted runner scale set; the runner must be linux/amd64 and provide curl, but needs no Docker daemon
 
 jobs:
   labels:
@@ -32,16 +27,7 @@ jobs:
           path: shared
           sparse-checkout: .github/labeler-config.yaml
 
-      - if: ${{ inputs.useDocker }}
-        uses: srvaroa/labeler@bf262763a8a8e191f5847873aecc0f29df84f957 # v1.14.0
-        with:
-          config_path: shared/.github/labeler-config.yaml
-          use_local_config: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run srvaroa/labeler binary
-        if: ${{ !inputs.useDocker }}
+      - name: Run srvaroa/labeler
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_CONFIG_PATH: shared/.github/labeler-config.yaml
