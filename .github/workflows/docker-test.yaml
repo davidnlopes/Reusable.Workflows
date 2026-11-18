@@ -1,0 +1,20 @@
+name: Docker workflow test
+on:
+  pull_request:
+    paths:
+      - .github/workflows/docker.yaml
+      - .github/workflows/docker-test.yaml
+      - tests/docker/**
+
+jobs:
+  docker:
+    permissions:
+      contents: read # checkout repository
+      statuses: write # set the commit status on pull requests
+      packages: write # requested by docker.yaml for ghcr.io pushes
+      id-token: write # requested by docker.yaml for AWS OIDC
+    uses: ./.github/workflows/docker.yaml
+    with:
+      projectDir: tests/docker
+      version: ${{ github.sha }}
+      push: false
