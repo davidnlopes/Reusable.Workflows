@@ -24,8 +24,6 @@ This repository provides reusable GitHub Actions workflows using the `workflow_c
 - `python.yaml` - Unit tests and coverage for Python projects
 - `terraform.yaml` - Validate, plan/apply/destroy for Terraform/OpenTofu
 - `docker.yaml` - Build Docker images from the caller's Bake file, and push them to a registry
-- `docker-build.yaml` - Deprecated, replaced by `docker.yaml`
-- `docker-build-push.yaml` - Deprecated, replaced by `docker.yaml`
 - `trivy-scan.yaml` - Security vulnerability scanning
 - `semantic-pr.yaml` - Enforce semantic PR titles and labels
 - `pre-commit-hooks.yaml` - Run pre-commit hooks in CI
@@ -70,7 +68,7 @@ Reusable Workflow
 
 | Service | Integration | Used By |
 |---------|-------------|---------|
-| AWS | OIDC authentication for ECR and Terraform | docker.yaml, docker-build-push.yaml, terraform.yaml |
+| AWS | OIDC authentication for ECR and Terraform | docker.yaml, terraform.yaml |
 | Codecov | Coverage reporting | golang.yaml, python.yaml |
 | GitHub API | Status checks and PR comments | All PR workflows |
 

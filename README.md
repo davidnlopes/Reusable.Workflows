@@ -13,8 +13,6 @@ Each workflow uses the `workflow_call` trigger. Workflows that run on pull reque
 | `react.yaml` | Installs dependencies with npm, pnpm, or Yarn, then lints, tests, builds, and uploads coverage | `CODECOV_TOKEN` |
 | `terraform.yaml` | Formats, validates, and runs `plan`, `apply`, or `destroy` with Terraform or OpenTofu, and comments the results on the PR | None, uses AWS OIDC |
 | `docker.yaml` | Builds the targets of your `docker-bake.hcl` with Docker Buildx Bake, and pushes them to a registry when asked | `REGISTRY_PASSWORD` (optional), or AWS OIDC for Amazon ECR |
-| `docker-build.yaml` | Deprecated, use `docker.yaml`. Builds a Docker image without pushing it | None |
-| `docker-build-push.yaml` | Deprecated, use `docker.yaml`. Builds a Docker image and pushes it to Amazon ECR | None, uses AWS OIDC |
 | `trivy-scan.yaml` | Scans the repository with Trivy and comments the findings on the PR | None |
 | `pre-commit-hooks.yaml` | Runs the repository's pre-commit hooks | None |
 | `semantic-pr.yaml` | Checks that the PR title follows conventional commits and that the PR has exactly one `major`, `minor`, or `patch` label | None |
@@ -144,7 +142,7 @@ Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and othe
 
 ### Set up AWS access
 
-`terraform.yaml`, `docker.yaml`, and `docker-build-push.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
+`terraform.yaml` and `docker.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
 
 ## Documentation
 
