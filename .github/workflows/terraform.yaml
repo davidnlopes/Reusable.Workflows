@@ -102,6 +102,12 @@ jobs:
           repository: davidnlopes/Reusable.Workflows
           path: actions
 
+      # The Terraform wrapper is a Node script; self-hosted runners ship without Node
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "26"
+
       - name: Install tools
         uses: ./actions/.github/actions/install-common-tools
         with:
