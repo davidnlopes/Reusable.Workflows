@@ -12,8 +12,9 @@ Each workflow uses the `workflow_call` trigger. Workflows that run on pull reque
 | `python.yaml` | Runs your setup and test commands, then uploads coverage to Codecov | `CODECOV_TOKEN` |
 | `react.yaml` | Installs dependencies with npm, pnpm, or Yarn, then lints, tests, builds, and uploads coverage | `CODECOV_TOKEN` |
 | `terraform.yaml` | Formats, validates, and runs `plan`, `apply`, or `destroy` with Terraform or OpenTofu, and comments the results on the PR | None, uses AWS OIDC |
-| `docker-build.yaml` | Builds a Docker image without pushing it | None |
-| `docker-build-push.yaml` | Builds a Docker image and pushes it to Amazon ECR | None, uses AWS OIDC |
+| `docker.yaml` | Builds the targets of your `docker-bake.hcl` with Docker Buildx Bake, and pushes them to a registry when asked | `REGISTRY_PASSWORD` (optional), or AWS OIDC for Amazon ECR |
+| `docker-build.yaml` | Deprecated, use `docker.yaml`. Builds a Docker image without pushing it | None |
+| `docker-build-push.yaml` | Deprecated, use `docker.yaml`. Builds a Docker image and pushes it to Amazon ECR | None, uses AWS OIDC |
 | `trivy-scan.yaml` | Scans the repository with Trivy and comments the findings on the PR | None |
 | `pre-commit-hooks.yaml` | Runs the repository's pre-commit hooks | None |
 | `semantic-pr.yaml` | Checks that the PR title follows conventional commits and that the PR has exactly one `major`, `minor`, or `patch` label | None |
@@ -85,21 +86,45 @@ jobs:
 
 Set `binary: tofu` to use OpenTofu instead of Terraform. The workflow assumes the AWS role in `eu-west-1`.
 
-Docker build and push to ECR:
+Docker images:
+
+`docker.yaml` runs `docker buildx bake` on the Bake file in your repository, so the file decides the targets, Dockerfiles, platforms, tags, and labels. A minimal `docker-bake.hcl`:
+
+```hcl
+variable "VERSION" {
+  default = "dev"
+}
+
+target "default" {
+  context   = "."
+  platforms = ["linux/amd64", "linux/arm64"]
+  tags      = ["ghcr.io/my-org/my-app:${VERSION}"]
+}
+```
+
+The caller builds on pull requests and pushes on `main`:
 
 ```yaml
 jobs:
   docker:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/docker-build-push.yaml@v1
+    permissions:
+      contents: read
+      statuses: write
+      packages: write
+      id-token: write
+    uses: davidnlopes/Reusable.Workflows/.github/workflows/docker.yaml@v1
     with:
-      dockerFilePath: Dockerfile
-      repository: my-service
-      tag: ${{ github.sha }}
-      awsRoleArn: arn:aws:iam::123456789012:role/ecr-push
-      pushToECR: true
+      registry: ghcr.io
+      version: ${{ github.sha }}
+      push: ${{ github.event_name == 'push' }}
 ```
 
-The workflow creates the ECR repository when it does not exist. Set `createRepository: false` to turn that off.
+The job requests all four permissions, so the caller must grant them even when it never pushes.
+
+- `ghcr.io` logs in with `GITHUB_TOKEN`. Other registries take `registryUsername` and the `REGISTRY_PASSWORD` secret.
+- For Amazon ECR, set `registry` to the ECR host and `awsRoleArn` to a role the workflow assumes with OIDC. The workflow reads the AWS region from the host unless you set `awsRegion`.
+- `version` reaches the Bake file as the `VERSION` variable. `set` takes Bake overrides, one per line, such as `*.platform=linux/amd64`.
+- The workflow installs QEMU only when a target platform differs from the runner's architecture. Set `setupQemu: false` on a runner that cannot install binfmt emulators, or `true` to always install them.
 
 Trivy, pre-commit, semantic PR, and labeler checks need no inputs:
 
@@ -119,7 +144,7 @@ Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and othe
 
 ### Set up AWS access
 
-`terraform.yaml` and `docker-build-push.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
+`terraform.yaml`, `docker.yaml`, and `docker-build-push.yaml` sign in to AWS with GitHub OIDC, so they need no stored AWS keys. Before you call them, create an IAM role that trusts GitHub's OIDC provider for your repository, and pass its ARN as `awsRoleArn`.
 
 ## Documentation
 

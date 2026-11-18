@@ -15,7 +15,9 @@ last_updated: "2025-12-06T02:00:43Z"
 │   ├── golang.yaml
 │   ├── python.yaml
 │   ├── terraform.yaml
-│   ├── docker-build-push.yaml
+│   ├── docker.yaml
+│   ├── docker-build.yaml        # Deprecated, replaced by docker.yaml
+│   ├── docker-build-push.yaml   # Deprecated, replaced by docker.yaml
 │   ├── trivy-scan.yaml
 │   ├── semantic-pr.yaml
 │   ├── pre-commit-hooks.yaml
