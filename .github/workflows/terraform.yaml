@@ -71,6 +71,7 @@ jobs:
       statuses: write # needed for setting the status of the PR
     defaults:
       run:
+        shell: bash
         working-directory: ${{ inputs.terraformProjectDir }}
     env:
       TF_IN_AUTOMATION: true
@@ -116,7 +117,7 @@ jobs:
 
       - name: Format
         id: fmt
-        run: ${{ inputs.binary }} fmt -recursive -diff -check
+        run: ${{ inputs.binary }} fmt -recursive -diff -check 2>&1 | tee "${RUNNER_TEMP}/terraform-fmt.out"
 
       - name: Configure AWS Credentials
         if: ${{ inputs.runPlanOrApply }}
@@ -130,14 +131,14 @@ jobs:
         id: init
         run: |
           if [ ${{ inputs.runPlanOrApply }} == true ]; then
-            ${{ inputs.binary }} init -upgrade | tee "${GITHUB_WORKSPACE}/init.out"
+            ${{ inputs.binary }} init -upgrade 2>&1 | tee "${RUNNER_TEMP}/terraform-init.out"
           else
-            ${{ inputs.binary }} init -backend=false | tee "${GITHUB_WORKSPACE}/init.out"
+            ${{ inputs.binary }} init -backend=false 2>&1 | tee "${RUNNER_TEMP}/terraform-init.out"
           fi
 
       - name: Validate
         id: validate
-        run: ${{ inputs.binary }} validate
+        run: ${{ inputs.binary }} validate 2>&1 | tee "${RUNNER_TEMP}/terraform-validate.out"
 
       - name: .terraform.lock.hcl updated?
         id: verify_lockfile
@@ -147,43 +148,7 @@ jobs:
       - name: ${{ inputs.terraformAction }}
         if: ${{ inputs.runPlanOrApply }}
         id: plan_or_apply
-        run: ${{ inputs.binary }} ${{ inputs.terraformAction }}
-
-      - name: Comment PR (fmt)
-        uses: GetTerminus/terraform-pr-commenter@93a60116ff139d4e9b92b2b61ddc15ebfbdb89c6 # v3
-        if: always() && github.event_name == 'pull_request' && inputs.addPullRequestComments && (steps.fmt.outcome == 'success' || steps.fmt.outcome == 'failure')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TF_WORKSPACE: ${{ inputs.terraformWorkspace }}
-          EXPAND_SUMMARY_DETAILS: false
-        with:
-          commenter_type: fmt
-          commenter_input: ${{ format('{0}{1}', steps.fmt.outputs.stdout, steps.fmt.outputs.stderr) }}
-          commenter_exitcode: ${{ steps.fmt.outputs.exitcode }}
-
-      - name: Comment PR (init)
-        uses: GetTerminus/terraform-pr-commenter@93a60116ff139d4e9b92b2b61ddc15ebfbdb89c6 # v3
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComments && (steps.init.outcome == 'success' || steps.init.outcome == 'failure')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TF_WORKSPACE: ${{ inputs.terraformWorkspace }}
-          EXPAND_SUMMARY_DETAILS: false
-        with:
-          commenter_type: init
-          commenter_input: ${{ format('{0}{1}', steps.init.outputs.stdout, steps.init.outputs.stderr) }}
-          commenter_exitcode: ${{ steps.init.outputs.exitcode }}
-
-      - name: Comment PR (validate)
-        uses: GetTerminus/terraform-pr-commenter@93a60116ff139d4e9b92b2b61ddc15ebfbdb89c6 # v3
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComments && (steps.validate.outcome == 'success' || steps.validate.outcome == 'failure')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TF_WORKSPACE: ${{ inputs.terraformWorkspace }}
-          EXPAND_SUMMARY_DETAILS: false
-        with:
-          commenter_type: validate
-          commenter_input: ${{ format('{0}{1}', steps.validate.outputs.stdout, steps.validate.outputs.stderr) }}
-          commenter_exitcode: ${{ steps.validate.outputs.exitcode }}
+        run: ${{ inputs.binary }} ${{ inputs.terraformAction }} 2>&1 | tee "${RUNNER_TEMP}/terraform-plan.out"
 
       - name: Comment PR (outdated lockfile)
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComments && steps.verify_lockfile.outcome == 'failure'
@@ -197,17 +162,176 @@ jobs:
             > [!CAUTION]
             > terraform.lockfile.hcl is not up to date!
 
-      - name: Comment PR (plan)
-        uses: GetTerminus/terraform-pr-commenter@93a60116ff139d4e9b92b2b61ddc15ebfbdb89c6 # v3
-        if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComments && (steps.plan_or_apply.outcome == 'success' || steps.plan_or_apply.outcome == 'failure')
+      - name: Comment PR (fmt, init, validate, ${{ inputs.terraformAction }})
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.addPullRequestComments
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TF_WORKSPACE: ${{ inputs.terraformWorkspace }}
-          EXPAND_SUMMARY_DETAILS: false
+          OUTPUT_DIR: ${{ runner.temp }}
+          PROJECT_DIR: ${{ inputs.terraformProjectDir }}
+          WORKSPACE: ${{ inputs.terraformWorkspace }}
+          BINARY: ${{ inputs.binary }}
+          ACTION: ${{ inputs.terraformAction }}
+          FMT_OUTCOME: ${{ steps.fmt.outcome }}
+          INIT_OUTCOME: ${{ steps.init.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
+          PLAN_OUTCOME: ${{ steps.plan_or_apply.outcome }}
         with:
-          commenter_type: plan
-          commenter_input: ${{ format('{0}{1}', steps.plan_or_apply.outputs.stdout, steps.plan_or_apply.outputs.stderr) }}
-          commenter_exitcode: ${{ steps.plan_or_apply.outputs.exitcode }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const env = process.env;
+            const workspace = env.WORKSPACE || 'default';
+            const tool = env.BINARY === 'tofu' ? 'OpenTofu' : 'Terraform';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // GitHub rejects comment bodies longer than 65536 characters.
+            const maxChunk = 60000;
+            const maxParts = 5;
+            const planStart = [
+              'Terraform used the selected providers to generate the following execution',
+              'OpenTofu used the selected providers to generate the following execution',
+              'No changes. Your infrastructure matches the configuration.',
+              'Planning failed.',
+              'Terraform planned the following actions, but then encountered a problem:',
+              'OpenTofu planned the following actions, but then encountered a problem:',
+            ];
+
+            const stages = [
+              { key: 'fmt', label: 'fmt', outcome: env.FMT_OUTCOME, alwaysPost: false },
+              { key: 'init', label: 'init', outcome: env.INIT_OUTCOME, alwaysPost: false },
+              { key: 'validate', label: 'validate', outcome: env.VALIDATE_OUTCOME, alwaysPost: false },
+              { key: 'plan', label: env.ACTION, outcome: env.PLAN_OUTCOME, alwaysPost: true },
+            ];
+
+            const marker = (key) => `<!-- terraform-ci:${key}:${env.PROJECT_DIR}:${workspace} -->`;
+            const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            // Comments posted by GetTerminus/terraform-pr-commenter before this workflow stopped using it.
+            const legacyPatterns = {
+              fmt: [/^### Terraform `fmt` Failed/],
+              init: [/^### Terraform `init` Failed/],
+              validate: [/^### Terraform `validate` Failed/],
+              plan: [
+                new RegExp('^### Terraform `plan` .* for Workspace: `' + escapeRegExp(workspace) + '`'),
+                new RegExp('^### Changes to outputs for Workspace: `' + escapeRegExp(workspace) + '`'),
+              ],
+            };
+
+            // The setup-terraform and setup-opentofu wrappers print [command] and workflow-command lines to stdout.
+            function readOutput(key) {
+              let text;
+              try {
+                text = fs.readFileSync(path.join(env.OUTPUT_DIR, `terraform-${key}.out`), 'utf8');
+              } catch {
+                return '';
+              }
+              return text
+                .replace(/\x1b\[[0-9;]*m/g, '')
+                .split('\n')
+                .filter((line) => !/^(\[command\]|::[a-z-]+( [^:]*)?::)/.test(line))
+                .join('\n')
+                .trim();
+            }
+
+            function trimPlan(text) {
+              const lines = text.split('\n');
+              const start = lines.findIndex((line) => planStart.some((s) => line.startsWith(s)));
+              return start > 0 ? lines.slice(start).join('\n') : text;
+            }
+
+            // Moves the change symbol to column 0 so GitHub's diff highlighting colours it.
+            function highlight(text) {
+              return text
+                .split('\n')
+                .map((line) => {
+                  const m = line.match(/^(\s*)(-\/\+|\+\/-|[-+~])(\s.*)?$/);
+                  if (!m) return line;
+                  const sign = m[2] === '+' || m[2] === '-' ? m[2] : '!';
+                  return sign + m[1] + (m[3] || '');
+                })
+                .join('\n');
+            }
+
+            function summary(text) {
+              const line = text
+                .split('\n')
+                .find((l) => /^(Plan: |No changes\.|Apply complete!|Destroy complete!|Error: )/.test(l));
+              return line ? `\`${line.trim()}\`` : null;
+            }
+
+            function split(text) {
+              const parts = [];
+              let rest = text;
+              while (rest.length > maxChunk && parts.length < maxParts - 1) {
+                let cut = rest.lastIndexOf('\n', maxChunk);
+                if (cut <= 0) cut = maxChunk;
+                parts.push(rest.slice(0, cut));
+                rest = rest.slice(cut).replace(/^\n/, '');
+              }
+              if (rest.length > maxChunk) {
+                rest = rest.slice(0, maxChunk) + `\n\n... output truncated, see the full log in the workflow run.`;
+              }
+              parts.push(rest);
+              return parts;
+            }
+
+            function fence(text) {
+              const longest = Math.max(2, ...(text.match(/`+/g) || []).map((m) => m.length));
+              return '`'.repeat(longest + 1);
+            }
+
+            async function listComments() {
+              return github.paginate(github.rest.issues.listComments, {
+                ...context.repo,
+                issue_number: context.issue.number,
+                per_page: 100,
+              });
+            }
+
+            const comments = await listComments();
+
+            for (const stage of stages) {
+              if (stage.outcome !== 'success' && stage.outcome !== 'failure') continue;
+
+              const stale = comments.filter(
+                (c) =>
+                  c.body &&
+                  (c.body.includes(marker(stage.key)) ||
+                    (c.user?.login === 'github-actions[bot]' && legacyPatterns[stage.key].some((re) => re.test(c.body)))),
+              );
+              for (const c of stale) {
+                await github.rest.issues.deleteComment({ ...context.repo, comment_id: c.id });
+              }
+
+              const failed = stage.outcome === 'failure';
+              if (!failed && !stage.alwaysPost) continue;
+
+              let output = readOutput(stage.key) || 'No output was captured.';
+              if (stage.key === 'plan') output = highlight(trimPlan(output));
+
+              const status = failed ? 'Failed' : 'Succeeded';
+              const where = env.PROJECT_DIR && env.PROJECT_DIR !== '.' ? ` in \`${env.PROJECT_DIR}\`` : '';
+              const parts = split(output);
+              for (const [i, part] of parts.entries()) {
+                const count = parts.length > 1 ? ` (${i + 1}/${parts.length})` : '';
+                const f = fence(part);
+                const body = [
+                  marker(stage.key),
+                  `### ${tool} \`${stage.label}\` ${status} for Workspace: \`${workspace}\`${where}${count}`,
+                  i === 0 && stage.key === 'plan' ? summary(output) : null,
+                  '<details><summary>Show Output</summary>',
+                  '',
+                  `${f}${stage.key === 'init' ? '' : 'diff'}`,
+                  part,
+                  f,
+                  '</details>',
+                  '',
+                  `[Workflow run](${runUrl})`,
+                ]
+                  .filter((line) => line !== null)
+                  .join('\n');
+                await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+              }
+            }
 
       - name: Set status success
         if: ${{ (success() || inputs.IgnoreErrors == true) && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') }}
