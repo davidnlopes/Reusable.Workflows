@@ -106,7 +106,7 @@ Workflows check out this repository to access shared composite actions:
 - name: Checkout reusable-workflows repository
   uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
   with:
-    repository: davidnlopes/Reusable.Workflows
+    repository: davidnlopes/reusable-workflows
     path: actions
 
 - name: Install tools

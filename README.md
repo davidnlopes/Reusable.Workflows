@@ -31,7 +31,7 @@ on: [pull_request]
 
 jobs:
   golang:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/golang.yaml@v1
     with:
       buildCommand: go build ./...
       testCommand: go test -coverprofile=coverage.out ./...
@@ -60,7 +60,7 @@ Python:
 ```yaml
 jobs:
   python:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/python.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/python.yaml@v1
     with:
       setupCommand: pip install -e .[dev]
       testsCommand: pytest --cov
@@ -73,7 +73,7 @@ Terraform plan:
 ```yaml
 jobs:
   terraform:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/terraform.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/terraform.yaml@v1
     with:
       terraformProjectDir: infra
       terraformAction: plan
@@ -110,7 +110,7 @@ jobs:
       statuses: write
       packages: write
       id-token: write
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/docker.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/docker.yaml@v1
     with:
       registry: ghcr.io
       version: ${{ github.sha }}
@@ -129,13 +129,13 @@ Trivy, pre-commit, semantic PR, and labeler checks need no inputs:
 ```yaml
 jobs:
   trivy:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/trivy-scan.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/trivy-scan.yaml@v1
   pre-commit:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/pre-commit-hooks.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/pre-commit-hooks.yaml@v1
   semantic-pr:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/semantic-pr.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/semantic-pr.yaml@v1
   labeler:
-    uses: davidnlopes/Reusable.Workflows/.github/workflows/labeler.yaml@v1
+    uses: davidnlopes/reusable-workflows/.github/workflows/labeler.yaml@v1
 ```
 
 Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and otherwise from `.trivyignore`. Only `.trivyignore.yaml` can limit a rule to some paths. On a `pull_request` event, Trivy also scans the base branch, and the check fails only on findings that the base branch does not have. A version bump of a package that is still vulnerable counts as new only when it adds an advisory. The PR comment lists the base branch's findings separately. Other events fail on every finding.
@@ -158,7 +158,7 @@ Trivy reads ignore rules from `.trivyignore.yaml` when the file exists, and othe
 There is nothing to build or install locally. To test a change, push a branch and call the workflow from a test repository by branch name:
 
 ```yaml
-uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch
+uses: davidnlopes/reusable-workflows/.github/workflows/golang.yaml@your-branch
 ```
 
 Open the PR with a conventional commit title and exactly one `major`, `minor`, or `patch` label. Merging to `main` publishes a release. See [`docs/development.md`](docs/development.md) for the full process.
