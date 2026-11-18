@@ -2,7 +2,7 @@
 last_updated: "2025-12-06T02:00:43Z"
 ---
 
-# Reusable.Workflows
+# reusable-workflows
 
 Reusable GitHub Actions workflows providing standardized CI/CD pipelines for Golang, Python, Terraform/OpenTofu, Docker, and security scanning.
 
@@ -11,7 +11,7 @@ Reusable GitHub Actions workflows providing standardized CI/CD pipelines for Gol
 ```bash
 # No local setup required - workflows are consumed remotely
 # Test changes by referencing your branch in a consumer repository:
-# uses: davidnlopes/Reusable.Workflows/.github/workflows/golang.yaml@your-branch
+# uses: davidnlopes/reusable-workflows/.github/workflows/golang.yaml@your-branch
 ```
 
 ## Principles
