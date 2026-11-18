@@ -16,8 +16,6 @@ last_updated: "2025-12-06T02:00:43Z"
 │   ├── python.yaml
 │   ├── terraform.yaml
 │   ├── docker.yaml
-│   ├── docker-build.yaml        # Deprecated, replaced by docker.yaml
-│   ├── docker-build-push.yaml   # Deprecated, replaced by docker.yaml
 │   ├── trivy-scan.yaml
 │   ├── semantic-pr.yaml
 │   ├── pre-commit-hooks.yaml
@@ -34,7 +32,7 @@ renovate.json            # Renovate configuration
 
 ## Naming Conventions
 
-**Workflow files:** Lowercase with hyphens (e.g., `docker-build-push.yaml`, `semantic-pr.yaml`)
+**Workflow files:** Lowercase with hyphens (e.g., `docker-test.yaml`, `semantic-pr.yaml`)
 
 **Job names:** Descriptive titles (e.g., "Build and test", "Unit tests", "Docker Build")
 
